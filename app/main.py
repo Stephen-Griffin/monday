@@ -43,6 +43,7 @@ class AppController:
 
     def disconnect_realtime(self) -> None:
         self._audio_engine.stop_listening()
+        self._realtime_client.stop_listening()
         self._realtime_client.disconnect()
 
     def start_listening(self) -> None:
@@ -55,13 +56,16 @@ class AppController:
                 )
             )
             return
+        self._realtime_client.start_listening()
         self._audio_engine.start_listening()
 
     def stop_listening(self) -> None:
         self._audio_engine.stop_listening()
+        self._realtime_client.stop_listening()
 
     def shutdown(self) -> None:
         self._audio_engine.stop_listening()
+        self._realtime_client.stop_listening()
         self._realtime_client.disconnect()
         self._logger.info(
             "Controller shutdown complete (model=%s, allowlist=%s).",
@@ -133,4 +137,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
