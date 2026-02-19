@@ -47,3 +47,39 @@ python -m unittest tests/test_event_bus.py
 - `app/audio/engine.py`
   - `AudioEngine.start_listening()`, `stop_listening()`
 
+---
+
+# Agent 2 Notes (Realtime + Audio Engineer)
+
+## UI integration points
+- UI should call controller methods already exposed in `app/main.py`:
+  - `connect_realtime()`
+  - `disconnect_realtime()`
+  - `start_listening()` (now starts realtime + mic capture)
+  - `stop_listening()` (now stops mic capture + signals turn finalization)
+
+## Realtime module contract
+- `app/realtime/client.py`:
+  - `connect()` starts a background asyncio websocket loop to OpenAI Realtime.
+  - `disconnect()` closes websocket, stops reconnect loop, and joins worker thread.
+  - `start_listening()` enables mic-stream forwarding.
+  - `stop_listening()` stops forwarding and sends commit/response-create when needed.
+
+## Audio module contract
+- `app/audio/io.py`:
+  - fixed pipeline format: mono PCM16 at `24000 Hz`
+  - bounded non-blocking queues for mic input and speaker output
+- `app/audio/engine.py`:
+  - publishes mic chunks as `AudioFrameEvent(source="mic")`
+  - consumes assistant chunks from `AudioFrameEvent(source="assistant")` for playback
+
+## Events emitted
+- `StatusEvent(component="realtime", status=...)`:
+  - `connecting`, `connected`, `listening`, `idle`, `reconnecting`, `error`, `disconnected`
+- `StatusEvent(component="audio", status=...)`:
+  - `listening`, `idle`
+- `TranscriptEvent`:
+  - assistant deltas/finals from Realtime transcript events
+  - user transcript events when server emits input transcription updates
+- `AudioFrameEvent(source="assistant")`:
+  - PCM chunks decoded from Realtime audio deltas and routed to speaker playback
