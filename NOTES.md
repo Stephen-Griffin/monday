@@ -47,6 +47,21 @@ python -m unittest tests/test_event_bus.py
 - `app/audio/engine.py`
   - `AudioEngine.start_listening()`, `stop_listening()`
 
+## Agent 3 Notes (UI/UX)
+
+### UI event contract
+- UI consumes:
+  - `TranscriptEvent`: appends transcript lines with local timestamp and speaker label.
+  - `ToolProposalEvent`: renders action proposal cards with tool, reason, and pretty JSON args.
+  - `StatusEvent`: updates status line and runtime indicators (`connected`, `listening`, `speaking`, `streaming`).
+  - `NotesUpdateEvent`: applies notes updates in the local notes pane (`mode=append|replace`) and shows a brief banner.
+- UI emits:
+  - `ActionDecisionEvent(action_id: str, decision: str)` where `decision` is `"approved"` or `"rejected"`.
+
+### Notes for integration
+- Action proposal card Approve/Reject buttons only publish decision events. UI does not execute actions.
+- Streaming indicator is derived from listening state (`ON` while listening, else `OFF`).
+- Speaking indicator is inferred from assistant transcript activity and decays back to `OFF` after a short timer.
 ## Agent 4 Notes (Tools + Safety)
 
 ### New event types emitted to UI via `EventBus`

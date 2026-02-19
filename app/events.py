@@ -82,6 +82,14 @@ class StatusEvent:
     event_id: str = field(default_factory=lambda: str(uuid4()))
 
 
+@dataclass(frozen=True)
+class ActionDecisionEvent:
+    action_id: str
+    decision: Literal["approved", "rejected", "cancelled"]
+    reason: str | None = None
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+      
+      
 AppEvent = (
     AudioFrameEvent
     | TranscriptEvent
@@ -91,6 +99,7 @@ AppEvent = (
     | ExecutionResultEvent
     | NotesUpdateEvent
     | StatusEvent
+    | ActionDecisionEvent
 )
 AppEventHandler = Callable[[AppEvent], None]
 
