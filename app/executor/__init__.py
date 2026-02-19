@@ -1,4 +1,3 @@
-from app.executor.actions import ActionExecutor
+from app.executor.actions import ActionExecutor, ActionResult
 
-__all__ = ["ActionExecutor"]
-
+__all__ = ["ActionExecutor", "ActionResult"]
