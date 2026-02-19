@@ -1,0 +1,2 @@
+"""Monday-lite application package."""
+
