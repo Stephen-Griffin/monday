@@ -44,7 +44,29 @@ class StatusEvent:
     event_id: str = field(default_factory=lambda: str(uuid4()))
 
 
-AppEvent = AudioFrameEvent | TranscriptEvent | ToolProposalEvent | StatusEvent
+@dataclass(frozen=True)
+class ActionDecisionEvent:
+    action_id: str
+    decision: str
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
+class NotesUpdateEvent:
+    content: str
+    mode: str = "append"
+    source: str = "jarvis"
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+AppEvent = (
+    AudioFrameEvent
+    | TranscriptEvent
+    | ToolProposalEvent
+    | StatusEvent
+    | ActionDecisionEvent
+    | NotesUpdateEvent
+)
 AppEventHandler = Callable[[AppEvent], None]
 
 
@@ -90,4 +112,3 @@ class EventBus:
                 handler(event)
             except Exception:
                 self._logger.exception("Event handler failed for %s", type(event).__name__)
-
