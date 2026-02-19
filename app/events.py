@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 import logging
 import threading
-from typing import Any, Callable, DefaultDict, TypeVar
+from typing import Any, Callable, DefaultDict, Literal, TypeVar
 from uuid import uuid4
 
 T = TypeVar("T")
@@ -37,6 +37,44 @@ class ToolProposalEvent:
 
 
 @dataclass(frozen=True)
+class ProposalCreatedEvent:
+    action_id: str
+    tool: str
+    args: dict[str, Any]
+    reason: str
+    event_type: Literal["proposal_created"] = "proposal_created"
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
+class DecisionRecordedEvent:
+    action_id: str
+    decision: Literal["approved", "rejected", "cancelled"]
+    reason: str | None = None
+    event_type: Literal["decision_recorded"] = "decision_recorded"
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
+class ExecutionResultEvent:
+    action_id: str
+    tool: str | None
+    executed: bool
+    detail: str
+    event_type: Literal["execution_result"] = "execution_result"
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
+class NotesUpdateEvent:
+    action_id: str
+    mode: Literal["append", "replace"]
+    text: str
+    event_type: Literal["notes_update"] = "notes_update"
+    event_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
 class StatusEvent:
     component: str
     status: str
@@ -44,7 +82,16 @@ class StatusEvent:
     event_id: str = field(default_factory=lambda: str(uuid4()))
 
 
-AppEvent = AudioFrameEvent | TranscriptEvent | ToolProposalEvent | StatusEvent
+AppEvent = (
+    AudioFrameEvent
+    | TranscriptEvent
+    | ToolProposalEvent
+    | ProposalCreatedEvent
+    | DecisionRecordedEvent
+    | ExecutionResultEvent
+    | NotesUpdateEvent
+    | StatusEvent
+)
 AppEventHandler = Callable[[AppEvent], None]
 
 
@@ -90,4 +137,3 @@ class EventBus:
                 handler(event)
             except Exception:
                 self._logger.exception("Event handler failed for %s", type(event).__name__)
-
