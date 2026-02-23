@@ -52,6 +52,24 @@ OPEN_BROWSER_FUNCTION = {
     },
 }
 
+RUN_WEB_AGENT_FUNCTION = {
+    "name": "run_web_agent",
+    "description": (
+        "Open a Playwright Chromium browser and perform a multi-step web task from a prompt. "
+        "This runs in the background and returns immediately with job status."
+    ),
+    "parameters": {
+        "type": "OBJECT",
+        "properties": {
+            "prompt": {
+                "type": "STRING",
+                "description": "Detailed instructions for the web browser agent.",
+            }
+        },
+        "required": ["prompt"],
+    },
+}
+
 
 class MondayVoiceCore:
     """
@@ -60,6 +78,7 @@ class MondayVoiceCore:
     - typed text input
     - camera frames
     - JSON function-call style browser opener
+    - background Playwright Chromium web agent
     """
 
     def __init__(
@@ -89,7 +108,7 @@ class MondayVoiceCore:
                 "You are Monday. Keep responses concise and practical. You will mimic the language, tone, and character of F.R.I.D.A.Y. from the Iron Man movies."
                 "When open_web_browser is available you may use it, but direct local command routing may execute it before you respond."
             ),
-            tools=[{"function_declarations": [OPEN_BROWSER_FUNCTION]}],
+            tools=[{"function_declarations": [OPEN_BROWSER_FUNCTION, RUN_WEB_AGENT_FUNCTION]}],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
@@ -114,9 +133,16 @@ class MondayVoiceCore:
         self._last_voice_open_signature = ""
         self._last_voice_open_time = 0.0
         self._suppress_audio_until = 0.0
+        self._playwright_web_agent = None
+        self._web_agent_task: asyncio.Task | None = None
+        self._web_agent_job_id = 0
+        self._web_agent_last_status = "idle"
+        self._web_agent_last_result: dict | None = None
 
     def close(self) -> None:
         self.stop_event.set()
+        if self._web_agent_task is not None and not self._web_agent_task.done():
+            self._web_agent_task.cancel()
         if self._mic_stream is not None:
             try:
                 self._mic_stream.close()
@@ -238,6 +264,90 @@ class MondayVoiceCore:
         normalized = self._normalize_url(url)
         webbrowser.open(normalized, new=2)
         return {"ok": True, "url": normalized}
+
+    def _get_playwright_web_agent(self):
+        if self._playwright_web_agent is None:
+            from playwright_web_agent import PlaywrightWebAgent
+
+            self._playwright_web_agent = PlaywrightWebAgent(api_key=self.api_key)
+        return self._playwright_web_agent
+
+    async def _start_web_agent_job(self, prompt: str, source: str = "tool") -> dict:
+        prompt = (prompt or "").strip()
+        if not prompt:
+            return {"ok": False, "error": "Missing required prompt"}
+
+        if self._web_agent_task is not None and not self._web_agent_task.done():
+            return {
+                "ok": False,
+                "error": "Web agent is already running",
+                "status": self._web_agent_last_status,
+            }
+
+        try:
+            self._get_playwright_web_agent()
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": (
+                    f"Failed to initialize Playwright web agent: {exc}. "
+                    "Install dependencies with `pip install -r requirements.txt` and "
+                    "`playwright install chromium`."
+                ),
+            }
+
+        self._web_agent_job_id += 1
+        job_id = f"web-agent-{self._web_agent_job_id}"
+        self._web_agent_last_status = f"running ({job_id})"
+        self._web_agent_last_result = None
+        self._web_agent_task = asyncio.create_task(
+            self._run_web_agent_job(job_id=job_id, prompt=prompt, source=source),
+            name=job_id,
+        )
+        return {"ok": True, "started": True, "job_id": job_id, "status": self._web_agent_last_status}
+
+    async def _run_web_agent_job(self, job_id: str, prompt: str, source: str) -> None:
+        print(f"[web-agent] {job_id} started via {source}: {prompt}")
+
+        async def _on_update(_image_b64: str | None, log: str) -> None:
+            if log:
+                print(f"[web-agent] {job_id}: {log}")
+
+        try:
+            agent = self._get_playwright_web_agent()
+            final_response = await agent.run_task(prompt, update_callback=_on_update)
+            self._web_agent_last_status = f"completed ({job_id})"
+            self._web_agent_last_result = {
+                "ok": True,
+                "job_id": job_id,
+                "status": self._web_agent_last_status,
+                "final_response": final_response,
+            }
+            print(f"[web-agent] {job_id} completed: {final_response}")
+        except asyncio.CancelledError:
+            self._web_agent_last_status = f"cancelled ({job_id})"
+            self._web_agent_last_result = {
+                "ok": False,
+                "job_id": job_id,
+                "status": self._web_agent_last_status,
+                "error": "Cancelled",
+            }
+            print(f"[web-agent] {job_id} cancelled")
+            raise
+        except Exception as exc:
+            self._web_agent_last_status = f"failed ({job_id})"
+            self._web_agent_last_result = {
+                "ok": False,
+                "job_id": job_id,
+                "status": self._web_agent_last_status,
+                "error": str(exc),
+            }
+            print(f"[web-agent] {job_id} failed: {exc}")
+
+    def _web_agent_status_text(self) -> str:
+        if self._web_agent_last_result:
+            return str(self._web_agent_last_result)
+        return self._web_agent_last_status
 
     def _clear_audio_queue(self) -> None:
         if self.audio_in_queue is None:
@@ -403,10 +513,18 @@ class MondayVoiceCore:
                 if response.tool_call:
                     function_responses = []
                     for fc in response.tool_call.function_calls:
-                        if fc.name != "open_web_browser":
-                            continue
                         args = dict(fc.args) if fc.args else {}
-                        result = self.execute_function_json({"name": "open_web_browser", "arguments": args})
+                        if fc.name == "open_web_browser":
+                            result = self.execute_function_json(
+                                {"name": "open_web_browser", "arguments": args}
+                            )
+                        elif fc.name == "run_web_agent":
+                            result = await self._start_web_agent_job(
+                                prompt=str(args.get("prompt", "")),
+                                source="model-tool",
+                            )
+                        else:
+                            result = {"ok": False, "error": f"Unsupported function: {fc.name}"}
                         function_responses.append(
                             types.FunctionResponse(id=fc.id, name=fc.name, response=result)
                         )
@@ -414,7 +532,7 @@ class MondayVoiceCore:
                         await self.session.send_tool_response(function_responses=function_responses)
 
     async def _text_loop(self) -> None:
-        print("Text commands: /camera on | /camera off | /quit")
+        print("Text commands: /camera on | /camera off | /web <task> | /web-status | /quit")
         while not self.stop_event.is_set():
             user_text = await asyncio.to_thread(input, "\nYou (text): ")
             user_text = user_text.strip()
@@ -430,6 +548,14 @@ class MondayVoiceCore:
             if user_text == "/camera off":
                 self.camera_enabled = False
                 print("Camera disabled.")
+                continue
+            if user_text == "/web-status":
+                print(f"[web-agent] {self._web_agent_status_text()}")
+                continue
+            if user_text.startswith("/web "):
+                prompt = user_text[5:].strip()
+                result = await self._start_web_agent_job(prompt=prompt, source="text-command")
+                print(f"[web-agent] {result}")
                 continue
 
             function_call = self.parse_open_browser_command(user_text)
