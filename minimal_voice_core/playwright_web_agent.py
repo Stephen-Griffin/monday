@@ -9,7 +9,7 @@ from google.genai import types
 
 SCREEN_WIDTH = 1440
 SCREEN_HEIGHT = 900
-DEFAULT_COMPUTER_USE_MODEL = "gemini-2.5-computer-use-preview-10-2025"
+DEFAULT_COMPUTER_USE_MODEL = "gemini-3-flash-preview"
 
 
 class PlaywrightWebAgent:
