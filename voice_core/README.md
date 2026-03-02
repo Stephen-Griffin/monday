@@ -8,7 +8,8 @@
 - optional camera snapshots for multimodal turns
 - local browser launching for browser-intent requests and YouTube-style searches
 
-The runtime is driven by `run.py` and the core behavior lives in `monday_voice_core.py`.
+The installable CLI is driven by `run.py`, and the core behavior lives in
+`monday_voice_core.py`.
 
 ## What The App Actually Does
 
@@ -47,30 +48,33 @@ The model is also given an `open_web_browser` tool declaration, so model-issued 
 
 | File | Purpose |
 | --- | --- |
+| `../pyproject.toml` | Project metadata, dependencies, console script, and tool configuration |
 | `run.py` | CLI entrypoint, argument parsing, and startup/shutdown flow |
 | `monday_voice_core.py` | Realtime audio, camera, text loop, browser command parsing, and Gemini Live session management |
-| `requirements.txt` | Python dependencies |
+| `requirements.txt` | Legacy dependency list kept for reference |
 | `.env.example` | Environment variable template |
 
 ## Requirements
 
 Before running the app, make sure you have:
 
-- Python `3.11+` recommended
+- Python `3.10+` supported, `3.11+` recommended
 - a valid `GEMINI_API_KEY`
 - a working microphone
 - speakers or headphones
 - a webcam if you want camera support
 - OS permission granted for microphone access, and camera access if enabled
 
-`monday_voice_core.py` contains a compatibility shim for Python versions earlier than `3.11`, but the backport packages it imports are not listed in `requirements.txt`. In practice, `Python 3.11+` is the safe setup.
+`monday_voice_core.py` contains a compatibility shim for Python versions earlier than
+`3.11`, and the root `pyproject.toml` installs the required backport packages
+automatically. In practice, `Python 3.11+` is still the cleanest setup.
 
 ## Step-By-Step Setup
 
 ### 1. Change Into The Project Directory
 
 ```bash
-cd voice_core
+cd /path/to/monday
 ```
 
 ### 2. Create A Virtual Environment
@@ -88,13 +92,13 @@ source .venv/bin/activate
 ### 4. Install Dependencies
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 ### 5. Create Your Environment File
 
 ```bash
-cp .env.example .env
+cp voice_core/.env.example .env
 ```
 
 ### 6. Add Your Gemini API Key
@@ -123,7 +127,7 @@ When your OS prompts for permissions:
 ### 8. Start The App
 
 ```bash
-python run.py
+monday-voice
 ```
 
 Once the session connects, you can speak naturally or type into the terminal prompt.
@@ -133,30 +137,30 @@ Once the session connects, you can speak naturally or type into the terminal pro
 ### Default Startup
 
 ```bash
-python run.py
+monday-voice
 ```
 
 ### Start Without Camera
 
 ```bash
-python run.py --no-camera
+monday-voice --no-camera
 ```
 
 ### Use A Different Camera Index
 
 ```bash
-python run.py --camera-index 0
+monday-voice --camera-index 0
 ```
 
 ### Override The Model Explicitly
 
 ```bash
-python run.py --model models/gemini-2.5-flash-native-audio-preview-12-2025
+monday-voice --model models/gemini-2.5-flash-native-audio-preview-12-2025
 ```
 
 ## CLI Options
 
-`run.py` exposes these arguments:
+`monday-voice` exposes these arguments:
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -209,7 +213,8 @@ The session runs until you enter `/quit` or terminate the process.
 ## Notes
 
 - `GEMINI_MODEL` is supported by `MondayVoiceCore`, but `run.py` always passes its own default `--model` value unless you explicitly override it on the command line.
-- `requirements.txt` currently includes `playwright` and `websockets`, but they are not imported by the current entrypoint code path in this trimmed voice-core version.
+- `playwright` and `websockets` are still listed in the project dependencies, but they are not imported by the current entrypoint code path in this trimmed voice-core version.
+- `python run.py` still works if you `cd voice_core` first, but the package-installed CLI is now the primary path.
 - Browser opening uses Python's built-in `webbrowser` module, so the exact browser launched depends on your local system defaults.
 
 ## Quick Start
@@ -217,11 +222,11 @@ The session runs until you enter `/quit` or terminate the process.
 If you want the shortest path:
 
 ```bash
-cd voice_core
+cd /path/to/monday
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-cp .env.example .env
+python -m pip install -e .
+cp voice_core/.env.example .env
 # edit .env and set GEMINI_API_KEY
-python run.py
+monday-voice
 ```
