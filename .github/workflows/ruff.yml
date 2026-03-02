@@ -1,0 +1,14 @@
+name: Python Ruff Formatter and Linter
+on: [push, pull_request]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Ruff formatter check
+        uses: astral-sh/ruff-action@v1
+        with:
+          args: format --check
