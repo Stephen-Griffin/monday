@@ -436,9 +436,7 @@ class MondayVoiceCore:
                         )
 
     async def _text_loop(self) -> None:
-        print(
-            "Text commands: /camera on | /camera off | /quit"
-        )
+        print("Text commands: /camera on | /camera off | /quit")
         while not self.stop_event.is_set():
             user_text = await asyncio.to_thread(input, "\nYou (text): ")
             user_text = user_text.strip()
