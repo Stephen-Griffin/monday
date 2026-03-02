@@ -79,7 +79,9 @@ class MondayVoiceCore:
         self.camera_index = camera_index
         self.camera_enabled = enable_camera
 
-        self.client = genai.Client(http_options={"api_version": "v1beta"}, api_key=self.api_key)
+        self.client = genai.Client(
+            http_options={"api_version": "v1beta"}, api_key=self.api_key
+        )
         self.audio = pyaudio.PyAudio()
 
         self.config = types.LiveConnectConfig(
@@ -89,7 +91,13 @@ class MondayVoiceCore:
             system_instruction=(
                 "You are Monday. Make responses witty and practical. You will mimic the language, tone, and character of Cortana from the HALO series."
             ),
-            tools=[{"function_declarations": [OPEN_BROWSER_FUNCTION,]}],
+            tools=[
+                {
+                    "function_declarations": [
+                        OPEN_BROWSER_FUNCTION,
+                    ]
+                }
+            ],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
@@ -114,7 +122,6 @@ class MondayVoiceCore:
         self._last_voice_open_signature = ""
         self._last_voice_open_time = 0.0
         self._suppress_audio_until = 0.0
-
 
     # Cleanup hook: stops background loops and releases audio resources (mic/speaker).
     # Not part of core logic—prevents leaked audio devices and ugly exits on Ctrl+C.
@@ -152,7 +159,10 @@ class MondayVoiceCore:
         if not original:
             return None
 
-        if not any(trigger in lowered for trigger in ["open", "go to", "visit", "play", "launch"]):
+        if not any(
+            trigger in lowered
+            for trigger in ["open", "go to", "visit", "play", "launch"]
+        ):
             return None
 
         explicit_url = self._extract_url(original)
@@ -190,7 +200,9 @@ class MondayVoiceCore:
                 },
             }
 
-        match = re.search(r"(?:open|go to|visit|launch)\s+(.+)$", original, flags=re.IGNORECASE)
+        match = re.search(
+            r"(?:open|go to|visit|launch)\s+(.+)$", original, flags=re.IGNORECASE
+        )
         if match:
             target = match.group(1).strip()
             if len(target) < 4:
@@ -224,7 +236,6 @@ class MondayVoiceCore:
         webbrowser.open(normalized, new=2)
         return {"ok": True, "url": normalized}
 
-
     def _clear_audio_queue(self) -> None:
         if self.audio_in_queue is None:
             return
@@ -254,7 +265,9 @@ class MondayVoiceCore:
 
         while not self.stop_event.is_set():
             try:
-                data = await asyncio.to_thread(self._mic_stream.read, CHUNK_SIZE, exception_on_overflow=False)
+                data = await asyncio.to_thread(
+                    self._mic_stream.read, CHUNK_SIZE, exception_on_overflow=False
+                )
                 await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
 
                 sample_count = len(data) // 2
@@ -300,7 +313,11 @@ class MondayVoiceCore:
         if self._camera is not None and self._camera.isOpened():
             return self._camera
 
-        backends = [getattr(cv2, "CAP_AVFOUNDATION", None), getattr(cv2, "CAP_DSHOW", None), cv2.CAP_ANY]
+        backends = [
+            getattr(cv2, "CAP_AVFOUNDATION", None),
+            getattr(cv2, "CAP_DSHOW", None),
+            cv2.CAP_ANY,
+        ]
         for backend in backends:
             if backend is None:
                 continue
@@ -373,8 +390,12 @@ class MondayVoiceCore:
                         self.audio_in_queue.put_nowait(data)
 
                 if response.server_content:
-                    in_tx = getattr(response.server_content.input_transcription, "text", None)
-                    out_tx = getattr(response.server_content.output_transcription, "text", None)
+                    in_tx = getattr(
+                        response.server_content.input_transcription, "text", None
+                    )
+                    out_tx = getattr(
+                        response.server_content.output_transcription, "text", None
+                    )
 
                     if in_tx and in_tx != self._last_input_transcription:
                         self._last_input_transcription = in_tx
@@ -400,15 +421,24 @@ class MondayVoiceCore:
                                 source="model-tool",
                             )
                         else:
-                            result = {"ok": False, "error": f"Unsupported function: {fc.name}"}
+                            result = {
+                                "ok": False,
+                                "error": f"Unsupported function: {fc.name}",
+                            }
                         function_responses.append(
-                            types.FunctionResponse(id=fc.id, name=fc.name, response=result)
+                            types.FunctionResponse(
+                                id=fc.id, name=fc.name, response=result
+                            )
                         )
                     if function_responses:
-                        await self.session.send_tool_response(function_responses=function_responses)
+                        await self.session.send_tool_response(
+                            function_responses=function_responses
+                        )
 
     async def _text_loop(self) -> None:
-        print("Text commands: /camera on | /camera off | /web <task> | /web-status | /quit")
+        print(
+            "Text commands: /camera on | /camera off | /quit"
+        )
         while not self.stop_event.is_set():
             user_text = await asyncio.to_thread(input, "\nYou (text): ")
             user_text = user_text.strip()
@@ -425,14 +455,6 @@ class MondayVoiceCore:
                 self.camera_enabled = False
                 print("Camera disabled.")
                 continue
-            if user_text == "/web-status":
-                print(f"[web-agent] {self._web_agent_status_text()}")
-                continue
-            if user_text.startswith("/web "):
-                prompt = user_text[5:].strip()
-                result = await self._start_web_agent_job(prompt=prompt, source="text-command")
-                print(f"[web-agent] {result}")
-                continue
 
             function_call = self.parse_open_browser_command(user_text)
             if function_call:
@@ -448,7 +470,9 @@ class MondayVoiceCore:
     async def run(self) -> None:
         print(f"Connecting with model: {self.model}")
         async with (
-            self.client.aio.live.connect(model=self.model, config=self.config) as session,
+            self.client.aio.live.connect(
+                model=self.model, config=self.config
+            ) as session,
             asyncio.TaskGroup() as tg,
         ):
             self.session = session
