@@ -1,10 +1,14 @@
 import argparse
 import asyncio
 
-from monday_voice_core import MondayVoiceCore
+try:
+    from .monday_voice_core import MondayVoiceCore
+except ImportError:
+    # Support direct script execution from inside the voice_core directory.
+    from monday_voice_core import MondayVoiceCore
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Monday minimal voice + text + camera + browser opener"
     )
@@ -16,7 +20,7 @@ def parse_args():
     return parser.parse_args()
 
 
-async def main():
+async def main() -> None:
     args = parse_args()
     app = MondayVoiceCore(
         model=args.model,
@@ -29,5 +33,5 @@ async def main():
         app.close()
 
 
-if __name__ == "__main__":
+def cli() -> None:
     asyncio.run(main())
