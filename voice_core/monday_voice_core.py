@@ -89,7 +89,7 @@ class MondayVoiceCore:
             input_audio_transcription={},
             output_audio_transcription={},
             system_instruction=(
-                "You are Monday. Make responses witty and practical. You will mimic the language, tone, and character of Cortana from the HALO series."
+                "You are Monday. Make responses witty and practical. You will mimic the language, tone, and character of JARVIS from the Iron Man movies. Speak with a british accent as well."
             ),
             tools=[
                 {
