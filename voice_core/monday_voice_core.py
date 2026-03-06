@@ -119,6 +119,8 @@ class MondayVoiceCore:
         self._silence_start_time = None
         self._last_input_transcription = ""
         self._last_output_transcription = ""
+        self._current_output_transcription = ""
+        self._monday_line_active = False
         self._last_voice_open_signature = ""
         self._last_voice_open_time = 0.0
         self._suppress_audio_until = 0.0
@@ -244,6 +246,36 @@ class MondayVoiceCore:
                 self.audio_in_queue.get_nowait()
         except Exception:
             pass
+
+    def _finalize_monday_line(self) -> None:
+        if self._monday_line_active:
+            print()
+            self._monday_line_active = False
+
+    def _update_output_transcription(self, chunk: str) -> str:
+        text = chunk.strip()
+        if not text:
+            return self._current_output_transcription
+
+        if self._last_output_transcription and text.startswith(
+            self._last_output_transcription
+        ):
+            self._current_output_transcription = text
+        elif self._current_output_transcription:
+            self._current_output_transcription = (
+                f"{self._current_output_transcription} {text}"
+            ).strip()
+        else:
+            self._current_output_transcription = text
+
+        self._last_output_transcription = text
+        return self._current_output_transcription
+
+    def _render_monday_line(self, text: str) -> None:
+        # Redraw the same console line as chunks arrive so Monday outputs as one line.
+        sys.stdout.write(f"\r\033[2KMonday: {text}")
+        sys.stdout.flush()
+        self._monday_line_active = True
 
     async def _send_realtime(self) -> None:
         while not self.stop_event.is_set():
@@ -383,6 +415,8 @@ class MondayVoiceCore:
 
     async def _receive(self) -> None:
         while not self.stop_event.is_set():
+            self._current_output_transcription = ""
+            self._last_output_transcription = ""
             turn = self.session.receive()
             async for response in turn:
                 if data := response.data:
@@ -398,16 +432,18 @@ class MondayVoiceCore:
                     )
 
                     if in_tx and in_tx != self._last_input_transcription:
+                        self._finalize_monday_line()
                         self._last_input_transcription = in_tx
                         print(f"\nYou (voice): {in_tx}")
                         await self._maybe_execute_voice_open_command(in_tx)
 
                     if out_tx and out_tx != self._last_output_transcription:
-                        self._last_output_transcription = out_tx
                         if time.time() >= self._suppress_audio_until:
-                            print(f"\nMonday: {out_tx}")
+                            combined = self._update_output_transcription(out_tx)
+                            self._render_monday_line(combined)
 
                 if response.tool_call:
+                    self._finalize_monday_line()
                     function_responses = []
                     for fc in response.tool_call.function_calls:
                         args = dict(fc.args) if fc.args else {}
@@ -434,6 +470,7 @@ class MondayVoiceCore:
                         await self.session.send_tool_response(
                             function_responses=function_responses
                         )
+            self._finalize_monday_line()
 
     async def _text_loop(self) -> None:
         print("Text commands: /camera on | /camera off | /quit")
