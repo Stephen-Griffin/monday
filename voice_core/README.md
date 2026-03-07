@@ -51,7 +51,7 @@ The model is also given an `open_web_browser` tool declaration, so model-issued 
 | `../pyproject.toml` | Project metadata, dependencies, console script, and tool configuration |
 | `run.py` | CLI entrypoint, argument parsing, and startup/shutdown flow |
 | `monday_voice_core.py` | Realtime audio, camera, text loop, browser command parsing, and Gemini Live session management |
-| `requirements.txt` | Legacy dependency list kept for reference |
+| `requirements.txt` | Flat dependency list for the current prototype and local development tools |
 | `.env.example` | Environment variable template |
 
 ## Requirements
@@ -93,6 +93,13 @@ source .venv/bin/activate
 
 ```bash
 python -m pip install -e .
+```
+
+If you prefer a direct requirements-file install for local development tools, you can
+also use:
+
+```bash
+python -m pip install -r voice_core/requirements.txt
 ```
 
 ### 5. Create Your Environment File
@@ -158,6 +165,33 @@ monday-voice --camera-index 0
 monday-voice --model models/gemini-2.5-flash-native-audio-preview-12-2025
 ```
 
+## Tests
+
+The repository now includes a `pytest` suite for the Python backend in
+`voice_core/tests/`. Those tests cover the CLI entrypoints and the non-device
+helper behavior in `monday_voice_core.py` without launching the live app,
+opening the microphone, or requiring camera access.
+
+### Run The Test Suite
+
+Run the tests from inside `voice_core`:
+
+```bash
+cd voice_core
+python -m pytest tests
+```
+
+### Optional Local Validation
+
+If you want to match the lightweight checks used during development:
+
+```bash
+cd voice_core
+python -m compileall . tests
+ruff format --check . tests
+python -m pytest tests
+```
+
 ## CLI Options
 
 `monday-voice` exposes these arguments:
@@ -216,6 +250,8 @@ The session runs until you enter `/quit` or terminate the process.
 - `playwright` and `websockets` are still listed in the project dependencies, but they are not imported by the current entrypoint code path in this trimmed voice-core version.
 - `python run.py` still works if you `cd voice_core` first, but the package-installed CLI is now the primary path.
 - Browser opening uses Python's built-in `webbrowser` module, so the exact browser launched depends on your local system defaults.
+- GitHub Actions now runs the `pytest` suite on every push and pull request alongside the existing Ruff formatter check.
+- `requirements.txt` now includes both the current runtime dependencies and the local test/dev tools used in this repo.
 
 ## Quick Start
 
