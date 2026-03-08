@@ -2,82 +2,105 @@
 
 ## Purpose
 
-This repository currently has one active product surface: the terminal-based voice prototype in `voice_core/`.
+This file is the root operating guide for cross-cutting work in this repository.
 
-Use this file as the default operating guide for any agent working in this repo. Keep changes narrow, practical, and aligned with the current codebase rather than inventing structure that does not exist yet.
+Use it when the task touches the repo root, spans multiple product surfaces, or
+changes shared project metadata. For implementation details inside a specific
+surface, follow the closer guide first:
+
+- `frontend/AGENTS.md`
+- `voice_core/AGENTS.md`
+
+## Scope At The Root
+
+The root of this repo is for coordination, not product-specific runtime logic.
+Root work includes:
+
+- `README.md`
+- `pyproject.toml`
+- `.github/`
+- repo-wide conventions, docs, and workflow wiring
+
+Do not use this file as the primary guide for editing `frontend/` or `voice_core/`
+internals. Those directories now have their own instructions.
 
 ## Repository Map
 
-- `README.md`: top-level project overview for the broader Monday vision. Keep this file high level.
-- `voice_core/README.md`: setup and usage guide for the current working prototype. Put runtime details here, not in the root README.
-- `voice_core/run.py`: CLI entrypoint and argument parsing.
-- `voice_core/monday_voice_core.py`: core application logic for Gemini Live, microphone streaming, audio playback, camera capture, text input, and local browser actions.
-- `voice_core/requirements.txt`: Python dependency list for the current prototype.
+- `README.md`: high-level product overview for the Monday project.
+- `pyproject.toml`: Python package metadata, shared tool configuration, and the
+  `monday-voice` console script definition.
+- `.github/workflows/eslint.yml`: frontend ESLint CI.
+- `.github/workflows/frontend-prettier.yml`: frontend Prettier CI.
+- `.github/workflows/pytest.yml`: Python test CI for `voice_core/tests`.
+- `.github/workflows/ruff.yml`: repo Ruff formatter check.
+- `frontend/`: Next.js frontend surface with its own local guide.
+- `voice_core/`: terminal Python voice prototype with its own local guide.
 
-## Current Tech Stack
+## Current Repo State
 
-- Python is the only active implementation in this repository today.
-- The app depends on `google-genai`, `python-dotenv`, `opencv-python`, and `pyaudio`.
-- The current CI workflow only checks `ruff format --check`.
-- There are no committed automated tests at the time this file was written.
+- The repo now has two active product surfaces: `frontend/` and `voice_core/`.
+- The root README is intentionally high level and should stay that way.
+- Python packaging and tool config are centralized in `pyproject.toml`.
+- CI currently runs frontend ESLint, frontend Prettier check, Python pytest, and
+  Ruff format checks.
+- There is no root-level app runner, monorepo task runner, or shared component
+  package today.
 
 ## Working Rules
 
 - Make the smallest change that fully solves the request.
-- Prefer updating existing files over creating new structure unless the task clearly requires it.
-- Keep documentation accurate to the current repo state. Do not describe planned architecture as if it already exists.
-- Preserve the split between product overview docs at the root and implementation details inside `voice_core/`.
+- Keep documentation accurate to the current repo state. Do not describe planned
+  structure as if it already exists.
+- Route implementation-specific guidance to the nearest directory guide instead of
+  duplicating it here.
+- When a change spans root and a product surface, update both the root file and the
+  relevant surface docs in the same change.
+- Preserve the split between high-level docs at the root and runtime/setup details in
+  subdirectory READMEs.
 - Use ASCII unless a file already requires another character set.
 - Do not commit secrets, tokens, or local machine state.
 
 ## Files And Paths To Avoid
 
-Do not modify these unless the user explicitly asks:
+Do not modify these unless the task explicitly requires it:
 
-- `voice_core/.env`
+- `.venv/`
+- `.pytest_cache/`
+- `.ruff_cache/`
+- `frontend/.next/`
+- `frontend/node_modules/`
 - `voice_core/.venv/`
 - `voice_core/__pycache__/`
+- `voice_core/tests/__pycache__/`
+- `.env`
 - `.DS_Store`
 
-These are local or generated artifacts and should not be part of normal changes.
-
-## Environment Expectations
-
-- Prefer Python `3.11+`.
-- The interactive app requires a valid `GEMINI_API_KEY` in `voice_core/.env`.
-- The app may require local OS permission for microphone and camera access.
-- Browser-opening behavior uses Python's `webbrowser` module and can launch real browser windows on the host machine.
+These are generated, local, or environment-specific artifacts.
 
 ## Safe Validation
 
-Use the least invasive validation that matches the change:
+Use only the checks that match the files you changed:
 
-- For documentation-only changes, verify paths, commands, and filenames manually.
-- For Python edits, prefer a non-interactive syntax check first:
-  - `cd voice_core && python -m compileall .`
-- If `ruff` is available, run:
-  - `ruff format --check voice_core`
-- Only run the full app when the user explicitly asks for a live/manual test:
-  - `cd voice_core && python run.py`
+- For root documentation changes, verify paths, filenames, and commands manually.
+- For `pyproject.toml` or Python workflow changes, use the relevant `voice_core`
+  checks from `voice_core/AGENTS.md`.
+- For frontend workflow or root docs that reference frontend commands, use the
+  relevant checks from `frontend/AGENTS.md`.
+- For CI workflow edits, inspect the YAML carefully and make sure referenced paths,
+  working directories, and commands still exist.
+- Do not launch interactive apps as a default validation step.
 
-## Side Effects And Caution Areas
+## Coordination Guidance
 
-Treat `voice_core/run.py` and `voice_core/monday_voice_core.py` as side-effectful:
-
-- Starting the app can access the microphone.
-- Camera capture is enabled by default unless `--no-camera` is used.
-- The app can open browser tabs or windows from typed input, voice transcription, or model tool calls.
-- Running the full app without user intent is not a safe default for automated work.
-
-When validating changes, prefer static checks unless the task specifically requires live device or browser behavior.
-
-## Editing Guidance
-
-- If the task affects runtime behavior, check both `voice_core/run.py` and `voice_core/monday_voice_core.py` before making assumptions.
-- Keep CLI flags and README instructions in sync when changing startup behavior.
-- Keep environment-variable names consistent with the implementation (`GEMINI_API_KEY`, optional `GEMINI_MODEL`).
-- If you change dependencies, update `voice_core/requirements.txt` and the relevant setup docs together.
-- If you change behavior that users will notice, update `voice_core/README.md` in the same change unless the user explicitly limits the scope.
+- If the task only affects `frontend/`, work there and follow `frontend/AGENTS.md`.
+- If the task only affects `voice_core/`, work there and follow
+  `voice_core/AGENTS.md`.
+- If the task affects both surfaces, keep changes clearly separated and update docs
+  for each affected area.
+- If you change shared metadata in `pyproject.toml`, confirm the change still matches
+  the current Python package layout in `voice_core/`.
+- If you change CI, keep workflow names, directories, and dependency-install steps
+  aligned with the actual repo layout.
 
 ## Pull Request Expectations
 
@@ -85,21 +108,18 @@ When preparing a PR:
 
 - Keep the branch focused on one task.
 - Summarize what changed and why.
-- Call out any manual verification performed.
-- Explicitly state when live runtime validation was not done because the app requires local devices, API credentials, or browser access.
+- Call out what you verified locally.
+- State clearly when live runtime validation was not done because it would require
+  devices, credentials, or a browser session.
 - Keep commits atomic.
-- Documentation should be updated with the changes that are made, in the same commit.
-- Changes with different purposes should live within different commits (atomic).
-- Commit message convention should be as follows: use the format "CHORE: xyz", "FEATURE: xyz", or "BUG: xyz".
-    - where:
-        - CHORE is a change that affects developers but not end users (such as adding a linter, or updating variable names).
-        - FEATURE is a change that affects the end user (such as new functionality).
-        - BUG is a fixed bug, plain and simple.
+- Update documentation in the same commit as the behavior or workflow change it
+  describes.
+- Use commit messages in the form `CHORE: xyz`, `FEATURE: xyz`, or `BUG: xyz`.
 
 ## What Not To Do
 
 - Do not run destructive git commands unless the user explicitly requests them.
 - Do not rewrite broad sections of documentation for style alone.
-- Do not add speculative frameworks, folders, or tooling just because they may be useful later.
-- Do not run the interactive voice app as a default smoke test.
-
+- Do not add speculative root tooling, folders, or monorepo layers just because they
+  might be useful later.
+- Do not let root docs become a duplicate of the subdirectory guides.
